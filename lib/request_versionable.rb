@@ -5,10 +5,11 @@ module RequestVersionable
 
   def self.included(klazz)
     klazz.extend ClassMethods
-    after_save_commit :save_associated_version_record
+    # after_save_commit :save_associated_version_record
   end
 
   module ClassMethods
+    private
     def save_version(name, scope = nil, **options, &extension)
       @version_association_name = name
       has_many name, scope, **options, &extension
@@ -18,18 +19,18 @@ end
 
 ActiveSupport.on_load(:active_record) do
   class ActiveRecord::Base
-    def self.save_as_versions(association_name, scope = nil, **options, &extension)
+    def self.save_record_histories(association_name, scope = nil, **options, &extension)
       if included_modules.include?(RequestVersionable)
-        puts "[WARN] #{self.name} is calling save_as_versions more than once!"
+        puts "[WARN] #{self.name} is calling save_record_histories more than once!"
         return
       end
-
       raise ArgumentError, "Required option association_name is missing" unless association_name.present?
 
       include RequestVersionable
-      save_version(association_name, scope, **options, &extension)
       class_attribute :version_association_name
       self.version_association_name = (association_name).to_s
+      self.send(:save_version,association_name, scope, **options, &extension)
+      after_save_commit :save_associated_version_record
     end
 
     private
@@ -51,5 +52,24 @@ ActiveSupport.on_load(:active_record) do
     end
   end
 end
+
+module RequestVersionableControllerExtension
+  extend ActiveSupport::Concern
+  before_action :set_current_user_store!
+
+  def set_current_user_store!(model)
+    record = self.send(model)
+    puts "record == #{record} \b\n\n\n\n\n\n\n\n\n\n\n\n\n"
+    RequestStore.store[:user_able] = record
+  rescue
+    nil
+  end
+end
+
+# config/initializers/action_controller_extension.rb
+ActiveSupport.on_load(:action_controller) do
+  include RequestVersionableControllerExtension
+end
+
 
 require 'request_versionable/rspec' if defined? RSpec
