@@ -5,6 +5,7 @@ module RequestVersionable
 
   def self.included(klazz)
     klazz.extend ClassMethods
+    after_save_commit :save_associated_version_record
   end
 
   module ClassMethods
