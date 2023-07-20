@@ -37,13 +37,13 @@ ActiveSupport.on_load(:active_record) do
 
     def save_associated_version_record
       return unless previous_changes.present?
-
+      association = self.send(version_association_name)
       keys = (self.class.attribute_names - %w[id created_at updated_at]).map(&:to_sym)
+      keys = keys & (association.klass.attribute_names - %w[id created_at updated_at]).map(&:to_sym)
       attributes = keys.map { |key| [key, self[key]] }.to_h
       attributes[:user_able] = RequestStore.store[:user_able]
 
       # Use the options from version_options to create the associated record
-      association = self.send(version_association_name)
       association.create(attributes)
     end
 
