@@ -55,7 +55,8 @@ end
 
 module RequestVersionableControllerExtension
   extend ActiveSupport::Concern
-  before_action :set_current_user_store!
+
+  private
 
   def set_current_user_store!(model)
     record = self.send(model)
