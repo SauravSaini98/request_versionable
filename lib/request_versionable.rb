@@ -25,11 +25,15 @@ ActiveSupport.on_load(:active_record) do
         return
       end
       raise ArgumentError, "Required option association_name is missing" unless association_name.present?
-
+      reject_keys = [:current_user_attribute]
+      filtered_options = options.reject { |key, _| reject_keys.include?(key) }
       include RequestVersionable
+
       class_attribute :version_association_name
+      class_attribute :current_user_attribute
       self.version_association_name = (association_name).to_s
-      self.send(:save_version,association_name, scope, **options, &extension)
+      self.current_user_attribute = (options[:current_user_attribute] || :user_able).to_sym
+      self.send(:save_version,association_name, scope, **filtered_options, &extension)
       after_save_commit :save_associated_version_record
     end
 
@@ -41,7 +45,7 @@ ActiveSupport.on_load(:active_record) do
       keys = (self.class.attribute_names - %w[id created_at updated_at]).map(&:to_sym)
       keys = keys & (association.klass.attribute_names - %w[id created_at updated_at]).map(&:to_sym)
       attributes = keys.map { |key| [key, self[key]] }.to_h
-      attributes[:user_able] = RequestStore.store[:user_able]
+      attributes[current_user_attribute] = RequestStore.store[:user_able]
 
       # Use the options from version_options to create the associated record
       association.create(attributes)
@@ -49,6 +53,10 @@ ActiveSupport.on_load(:active_record) do
 
     def version_association_name
       self.class.version_association_name
+    end
+
+    def current_user_attribute
+      self.class.current_user_attribute
     end
   end
 end
@@ -60,7 +68,6 @@ module RequestVersionableControllerExtension
 
   def set_current_user_store!(model)
     record = self.send(model)
-    puts "record == #{record} \b\n\n\n\n\n\n\n\n\n\n\n\n\n"
     RequestStore.store[:user_able] = record
   rescue
     nil
